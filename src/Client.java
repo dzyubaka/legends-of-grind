@@ -1,31 +1,32 @@
 import javax.swing.*;
 import java.awt.*;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 
 public class Client {
     public static void main(String[] args) {
-        JFrame frame = new JFrame("Legends of Grind");
-        frame.setLocationRelativeTo(null);
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setLayout(new GridLayout(4, 4));
-        frame.add(new JLabel("Login"));
+        JFrame logInFrame = new JFrame("Legends of Grind");
+        logInFrame.setLocationRelativeTo(null);
+        logInFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        logInFrame.setLayout(new GridLayout(4, 4));
+        logInFrame.add(new JLabel("Login"));
         JTextField registerLogin = new JTextField();
-        frame.add(registerLogin);
-        frame.add(new JLabel("Login"));
+        logInFrame.add(registerLogin);
+        logInFrame.add(new JLabel("Login"));
         JTextField logInLogin = new JTextField();
-        frame.add(logInLogin);
-        frame.add(new JLabel("Password"));
+        logInFrame.add(logInLogin);
+        logInFrame.add(new JLabel("Password"));
         JPasswordField registerPassword = new JPasswordField();
-        frame.add(registerPassword);
-        frame.add(new JLabel("Password"));
+        logInFrame.add(registerPassword);
+        logInFrame.add(new JLabel("Password"));
         JPasswordField logInPassword = new JPasswordField();
-        frame.add(logInPassword);
-        frame.add(new JLabel("Nickname"));
+        logInFrame.add(logInPassword);
+        logInFrame.add(new JLabel("Nickname"));
         JTextField nickname = new JTextField();
-        frame.add(nickname);
-        frame.add(new Container());
+        logInFrame.add(nickname);
+        logInFrame.add(new Container());
         JButton logInButton = new JButton("Log In");
         logInButton.addActionListener(_ -> {
             try {
@@ -38,23 +39,34 @@ public class Client {
                 throw new RuntimeException(e);
             }
         });
-        frame.add(logInButton);
-        frame.add(new Container());
+        logInFrame.add(logInButton);
+        logInFrame.add(new Container());
         JButton registerButton = new JButton("Register");
         registerButton.addActionListener(_ -> {
             try {
                 Socket socket = new Socket("localhost", 52);
+                InputStream inputStream = socket.getInputStream();
                 OutputStream outputStream = socket.getOutputStream();
                 outputStream.write("register\n".getBytes());
-                outputStream.write((registerLogin.getText() + '\n').getBytes());
-                outputStream.write((registerPassword.getText() + '\n').getBytes());
-                outputStream.write((nickname.getText() + '\n').getBytes());
+                outputStream.write(registerLogin.getText().getBytes());
+                outputStream.write('\n');
+                outputStream.write(registerPassword.getText().getBytes());
+                outputStream.write('\n');
+                outputStream.write(nickname.getText().getBytes());
+                outputStream.write('\n');
+                if (inputStream.read() == 1) {
+                    JFrame frame = new JFrame("Legends of Grind");
+                    frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+                    frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+                    frame.setVisible(true);
+                    logInFrame.dispose();
+                }
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         });
-        frame.add(registerButton);
-        frame.pack();
-        frame.setVisible(true);
+        logInFrame.add(registerButton);
+        logInFrame.pack();
+        logInFrame.setVisible(true);
     }
 }

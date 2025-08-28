@@ -1,6 +1,4 @@
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.sql.Connection;
@@ -13,6 +11,7 @@ public class Server {
         ServerSocket serverSocket = new ServerSocket(52);
         Socket socket = serverSocket.accept();
         BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        OutputStream outputStream = socket.getOutputStream();
         String operation = reader.readLine();
         if (operation.equals("register")) {
             String login = reader.readLine();
@@ -24,6 +23,7 @@ public class Server {
             preparedStatement.setString(2, password);
             preparedStatement.setString(3, nickname);
             preparedStatement.execute();
+            outputStream.write(1);
         } else if (operation.equals("login")) {
 
         } else throw new IllegalStateException();
