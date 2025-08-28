@@ -1,3 +1,3 @@
 public enum Tile {
-    GRASS
+    BUSH, GRASS
 }

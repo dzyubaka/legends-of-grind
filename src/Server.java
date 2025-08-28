@@ -8,10 +8,12 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.Random;
 
 public class Server {
+    private static final int TILEMAP_SIZE = 100;
     private static final Path path = Path.of("tilemap.txt");
-    private static final Tile[][] tilemap = new Tile[100][100];
+    private static final Tile[][] tilemap = new Tile[TILEMAP_SIZE][TILEMAP_SIZE];
 
     public static void main(String[] args) throws IOException, SQLException {
         loadOrGenerateTilemap();
@@ -25,12 +27,13 @@ public class Server {
             String password = reader.readLine();
             String nickname = reader.readLine();
             Connection connection = DriverManager.getConnection("jdbc:sqlite:Legends of Grind.db");
-            PreparedStatement preparedStatement = connection.prepareStatement("insert into users values (?, ?, ?)");
+            PreparedStatement preparedStatement = connection.prepareStatement("insert into users values (?, ?, ?, ?, ?)");
             preparedStatement.setString(1, login);
             preparedStatement.setString(2, password);
             preparedStatement.setString(3, nickname);
-            preparedStatement.execute();
-            outputStream.write(1);
+            preparedStatement.setInt(4, TILEMAP_SIZE / 2);
+            preparedStatement.setInt(5, TILEMAP_SIZE / 2);
+            outputStream.write(preparedStatement.executeUpdate());
             sendTilemap(outputStream);
         } else if (operation.equals("login")) {
 
@@ -38,12 +41,11 @@ public class Server {
     }
 
     private static void sendTilemap(OutputStream outputStream) throws IOException {
-        for (int i = 0; i < tilemap.length; i++) {
-            for (int j = 0; j < tilemap.length; j++) {
+        for (int i = 0; i < TILEMAP_SIZE; i++) {
+            for (int j = 0; j < TILEMAP_SIZE; j++) {
                 outputStream.write(tilemap[i][j].ordinal());
             }
         }
-        System.out.println("Successfully sent tilemap to client");
     }
 
     private static void loadOrGenerateTilemap() {
@@ -56,8 +58,8 @@ public class Server {
 
     private static void loadTilemap() {
         try (BufferedReader bufferedReader = Files.newBufferedReader(path)) {
-            for (int i = 0; i < tilemap.length; i++) {
-                for (int j = 0; j < tilemap.length; j++) {
+            for (int i = 0; i < TILEMAP_SIZE; i++) {
+                for (int j = 0; j < TILEMAP_SIZE; j++) {
                     tilemap[i][j] = Tile.values()[bufferedReader.read() - '0'];
                 }
                 bufferedReader.read();
@@ -68,17 +70,18 @@ public class Server {
     }
 
     private static void generateTilemap() {
-        for (int i = 0; i < tilemap.length; i++) {
-            for (int j = 0; j < tilemap.length; j++) {
-                tilemap[i][j] = Tile.GRASS;
+        Random random = new Random();
+        for (int i = 0; i < TILEMAP_SIZE; i++) {
+            for (int j = 0; j < TILEMAP_SIZE; j++) {
+                tilemap[i][j] = random.nextBoolean() ? Tile.GRASS : Tile.BUSH;
             }
         }
     }
 
     private static void saveTilemap() throws IOException {
         try (BufferedWriter bufferedWriter = Files.newBufferedWriter(path, StandardOpenOption.CREATE)) {
-            for (int i = 0; i < tilemap.length; i++) {
-                for (int j = 0; j < tilemap.length; j++) {
+            for (int i = 0; i < TILEMAP_SIZE; i++) {
+                for (int j = 0; j < TILEMAP_SIZE; j++) {
                     bufferedWriter.write(tilemap[i][j].ordinal() + '0');
                 }
                 bufferedWriter.write('\n');
