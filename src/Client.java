@@ -109,17 +109,21 @@ public class Client {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
-                for (int i = x / TILE_SIZE; i < x / TILE_SIZE + 16; i++) {
-                    for (int j = -y / TILE_SIZE; j < -y / TILE_SIZE + 8; j++) {
-                        BufferedImage tileSprite = tilemap[i + 8][j + 4] == Tile.GRASS ? grass : bush;
-                        g.drawImage(tileSprite, i * TILE_SIZE + (getWidth() - 16 * TILE_SIZE) / 2 - x, j * TILE_SIZE + (getHeight() - 8 * TILE_SIZE) / 2 + y, TILE_SIZE, TILE_SIZE, null);
-                        g.drawRect(i * TILE_SIZE + (getWidth() - 16 * TILE_SIZE) / 2 - x, j * TILE_SIZE + (getHeight() - 8 * TILE_SIZE) / 2 + y, TILE_SIZE, TILE_SIZE);
-                        g.drawImage(player, (getWidth() - TILE_SIZE) / 2, (getHeight() - TILE_SIZE) / 2, TILE_SIZE, TILE_SIZE, null);
-                        g.drawRect((getWidth() - TILE_SIZE) / 2, (getHeight() - TILE_SIZE) / 2, TILE_SIZE, TILE_SIZE);
+                int halfWidthTileCount = getWidth() / 2 / TILE_SIZE;
+                int halfHeightTileCount = getHeight() / 2 / TILE_SIZE;
+                for (int i = x / TILE_SIZE - halfWidthTileCount - 1; i < x / TILE_SIZE + halfWidthTileCount + 1; i++) {
+                    for (int j = -y / TILE_SIZE - halfHeightTileCount - 2; j < -y / TILE_SIZE + halfHeightTileCount + 2; j++) {
+                        int tileIndexX = i + TILEMAP_SIZE / 2;
+                        int tileIndexY = j + TILEMAP_SIZE / 2;
+                        BufferedImage tileSprite = tilemap[tileIndexX][tileIndexY] == Tile.GRASS ? grass : bush;
+                        int tileX = i * TILE_SIZE + getWidth() / 2 - x;
+                        int tileY = j * TILE_SIZE + getHeight() / 2 + y;
+                        g.drawImage(tileSprite, tileX, tileY, TILE_SIZE, TILE_SIZE, null);
                     }
                 }
-                g.drawString("x = " + x, 0, 8);
-                g.drawString("y = " + y, 0, 16);
+                int playerX = (getWidth() - TILE_SIZE) / 2;
+                int playerY = (getHeight() - TILE_SIZE) / 2;
+                g.drawImage(player, playerX, playerY, TILE_SIZE, TILE_SIZE, null);
             }
         };
         frame.add(panel);
@@ -151,13 +155,8 @@ public class Client {
         });
         frame.setVisible(true);
         new Timer(1000 / 50, _ -> {
-            try {
-                move();
-                panel.repaint();
-                Thread.sleep(20);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
+            move();
+            panel.repaint();
         }).start();
     }
 
