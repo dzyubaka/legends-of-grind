@@ -6,10 +6,12 @@ import java.awt.event.KeyListener;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
+import java.net.*;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 
 public class Client {
@@ -17,8 +19,9 @@ public class Client {
     private static final int TILE_SIZE = 64;
     private static final Tile[][] tilemap = new Tile[TILEMAP_SIZE][TILEMAP_SIZE];
     private static final boolean[] wasd = new boolean[4];
-    private static BufferedImage player, grass, bush, stone;
+    private static BufferedImage playerImage, grass, bush, stone;
     private static int x, y;
+    private static ArrayList<Point> players = new ArrayList<>();
 
     public static void main(String[] args) throws IOException {
         loadSprites();
@@ -26,7 +29,7 @@ public class Client {
     }
 
     private static void loadSprites() throws IOException {
-        player = ImageIO.read(Client.class.getResourceAsStream("player.png"));
+        playerImage = ImageIO.read(Client.class.getResourceAsStream("player.png"));
         grass = ImageIO.read(Client.class.getResourceAsStream("grass.png"));
         bush = ImageIO.read(Client.class.getResourceAsStream("bush.png"));
         stone = ImageIO.read(Client.class.getResourceAsStream("stone.png"));
@@ -84,7 +87,7 @@ public class Client {
         }
     }
 
-    private static void openMainFrame() {
+    private static void openMainFrame() throws SocketException {
         JFrame frame = new JFrame("Legends of Grind");
         frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -104,9 +107,14 @@ public class Client {
                         g.drawImage(tileSprite, tileX, tileY, TILE_SIZE, TILE_SIZE, null);
                     }
                 }
+                for (Point player : players) {
+                    int playerX = player.x + (getWidth() - TILE_SIZE) / 2 - x;
+                    int playerY = -player.y + (getHeight() - TILE_SIZE) / 2 + y;
+                    g.drawImage(playerImage, playerX, playerY, TILE_SIZE, TILE_SIZE, null);
+                }
                 int playerX = (getWidth() - TILE_SIZE) / 2;
                 int playerY = (getHeight() - TILE_SIZE) / 2;
-                g.drawImage(player, playerX, playerY, TILE_SIZE, TILE_SIZE, null);
+                g.drawImage(playerImage, playerX, playerY, TILE_SIZE, TILE_SIZE, null);
             }
         };
         frame.add(panel);
@@ -140,6 +148,34 @@ public class Client {
         new Timer(1000 / 50, _ -> {
             move();
             panel.repaint();
+        }).start();
+        DatagramSocket server = new DatagramSocket();
+        new Timer(1000, _ -> {
+            try {
+                byte[] buf = {(byte) x, (byte) y};
+                DatagramPacket packet = new DatagramPacket(buf, 0, buf.length, new InetSocketAddress("localhost", 8888));
+                server.send(packet);
+                System.out.println("sent buf " + Arrays.toString(buf));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }).start();
+        new Thread(() -> {
+            try {
+                while (true) {
+                    byte[] buf = new byte[4];
+                    DatagramPacket packet = new DatagramPacket(buf, buf.length);
+                    server.receive(packet);
+                    System.out.printf("received %s from server%n", Arrays.toString(Arrays.copyOfRange(buf, 0, packet.getLength())));
+                    players.clear();
+                    for (int i = 0; i < packet.getLength(); i += 2) {
+                        players.add(new Point(buf[i], buf[i + 1]));
+                    }
+                    System.out.println("players = " + players);
+                }
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         }).start();
     }
 
