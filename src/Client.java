@@ -6,8 +6,11 @@ import java.awt.event.KeyListener;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.Socket;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.util.Base64;
 
 public class Client {
     private static final int TILEMAP_SIZE = 100;
@@ -50,42 +53,21 @@ public class Client {
         JTextField nickname = new JTextField();
         logInFrame.add(nickname);
         logInFrame.add(new Container());
-        JButton logInButton = new JButton("Log In");
-        logInButton.addActionListener(_ -> {
-            try {
-                Socket socket = new Socket("localhost", 52);
-                OutputStream outputStream = socket.getOutputStream();
-                outputStream.write("login".getBytes());
-                outputStream.write('\n');
-                outputStream.write(logInLogin.getText().getBytes());
-                outputStream.write('\n');
-                outputStream.write(logInPassword.getText().getBytes());
-                outputStream.write('\n');
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        });
-        logInFrame.add(logInButton);
+        logInFrame.add(new JButton("Log In"));
         logInFrame.add(new Container());
         JButton registerButton = new JButton("Register");
         registerButton.addActionListener(_ -> {
             try {
-                Socket socket = new Socket("localhost", 52);
-                InputStream inputStream = socket.getInputStream();
-                OutputStream outputStream = socket.getOutputStream();
-                outputStream.write("register\n".getBytes());
-                outputStream.write(registerLogin.getText().getBytes());
-                outputStream.write('\n');
-                outputStream.write(registerPassword.getText().getBytes());
-                outputStream.write('\n');
-                outputStream.write(nickname.getText().getBytes());
-                outputStream.write('\n');
-                if (inputStream.read() == 1) {
-                    receiveTilemap(inputStream);
-                    openMainFrame();
-                    logInFrame.dispose();
-                }
-            } catch (IOException e) {
+                String auth = "Basic " + Base64.getEncoder().encodeToString((registerLogin.getText() + ":" + registerPassword.getText()).getBytes());
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create("http://localhost/register"))
+                        .header("Authorization", auth)
+                        .POST(HttpRequest.BodyPublishers.noBody())
+                        .build();
+                HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.discarding());
+                openMainFrame();
+                logInFrame.dispose();
+            } catch (IOException | InterruptedException e) {
                 throw new RuntimeException(e);
             }
         });
@@ -116,7 +98,7 @@ public class Client {
                     for (int j = -y / TILE_SIZE - halfHeightTileCount - 2; j < -y / TILE_SIZE + halfHeightTileCount + 2; j++) {
                         int tileIndexX = i + TILEMAP_SIZE / 2;
                         int tileIndexY = j + TILEMAP_SIZE / 2;
-                        BufferedImage tileSprite = tilemap[tileIndexX][tileIndexY] == Tile.STONE ? stone : (tilemap[tileIndexX][tileIndexY] == Tile.GRASS ? grass : bush);
+                        BufferedImage tileSprite = tilemap[tileIndexX][tileIndexY] == Tile.STONE ? stone : (tilemap[tileIndexX][tileIndexY] == Tile.BUSH ? bush : grass);
                         int tileX = i * TILE_SIZE + getWidth() / 2 - x;
                         int tileY = j * TILE_SIZE + getHeight() / 2 + y;
                         g.drawImage(tileSprite, tileX, tileY, TILE_SIZE, TILE_SIZE, null);

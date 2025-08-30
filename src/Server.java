@@ -1,6 +1,7 @@
+import com.sun.net.httpserver.HttpServer;
+
 import java.io.*;
-import java.net.ServerSocket;
-import java.net.Socket;
+import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -8,6 +9,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.Base64;
 import java.util.Random;
 
 public class Server {
@@ -16,28 +18,27 @@ public class Server {
     private static final Tile[][] tilemap = new Tile[TILEMAP_SIZE][TILEMAP_SIZE];
 
     public static void main(String[] args) throws IOException, SQLException {
+        Connection connection = DriverManager.getConnection("jdbc:sqlite:Legends of Grind.db");
+        HttpServer httpServer = HttpServer.create(new InetSocketAddress(80), 0);
+        Base64.Decoder decoder = Base64.getDecoder();
+        httpServer.createContext("/register", exchange -> {
+            try {
+                String[] auth = new String(decoder.decode(exchange.getRequestHeaders().getFirst("Authorization").split(" ")[1])).split(":");
+                PreparedStatement preparedStatement = connection.prepareStatement("insert into users values (?, ?, ?, ?, ?)");
+                preparedStatement.setString(1, auth[0]);
+                preparedStatement.setString(2, auth[1]);
+                preparedStatement.setString(3, null);
+                preparedStatement.setInt(4, TILEMAP_SIZE / 2);
+                preparedStatement.setInt(5, TILEMAP_SIZE / 2);
+                preparedStatement.executeUpdate();
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+            exchange.sendResponseHeaders(200, 0);
+            exchange.close();
+        });
+        httpServer.start();
         loadOrGenerateTilemap();
-        ServerSocket serverSocket = new ServerSocket(52);
-        Socket socket = serverSocket.accept();
-        BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-        OutputStream outputStream = socket.getOutputStream();
-        String operation = reader.readLine();
-        if (operation.equals("register")) {
-            String login = reader.readLine();
-            String password = reader.readLine();
-            String nickname = reader.readLine();
-            Connection connection = DriverManager.getConnection("jdbc:sqlite:Legends of Grind.db");
-            PreparedStatement preparedStatement = connection.prepareStatement("insert into users values (?, ?, ?, ?, ?)");
-            preparedStatement.setString(1, login);
-            preparedStatement.setString(2, password);
-            preparedStatement.setString(3, nickname);
-            preparedStatement.setInt(4, TILEMAP_SIZE / 2);
-            preparedStatement.setInt(5, TILEMAP_SIZE / 2);
-            outputStream.write(preparedStatement.executeUpdate());
-            sendTilemap(outputStream);
-        } else if (operation.equals("login")) {
-
-        } else throw new IllegalStateException();
     }
 
     private static void sendTilemap(OutputStream outputStream) throws IOException {
