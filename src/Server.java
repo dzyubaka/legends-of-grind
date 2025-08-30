@@ -73,7 +73,7 @@ public class Server {
         Random random = new Random();
         for (int i = 0; i < TILEMAP_SIZE; i++) {
             for (int j = 0; j < TILEMAP_SIZE; j++) {
-                tilemap[i][j] = random.nextBoolean() ? Tile.GRASS : Tile.BUSH;
+                tilemap[i][j] = random.nextInt(10) == 0 ? (random.nextInt(10) == 0 ? Tile.STONE : Tile.BUSH) : Tile.GRASS;
             }
         }
     }

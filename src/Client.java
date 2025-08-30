@@ -14,7 +14,7 @@ public class Client {
     private static final int TILE_SIZE = 64;
     private static final Tile[][] tilemap = new Tile[TILEMAP_SIZE][TILEMAP_SIZE];
     private static final boolean[] wasd = new boolean[4];
-    private static BufferedImage player, grass, bush;
+    private static BufferedImage player, grass, bush, stone;
     private static int x, y;
 
     public static void main(String[] args) throws IOException {
@@ -26,6 +26,7 @@ public class Client {
         player = ImageIO.read(Client.class.getResourceAsStream("player.png"));
         grass = ImageIO.read(Client.class.getResourceAsStream("grass.png"));
         bush = ImageIO.read(Client.class.getResourceAsStream("bush.png"));
+        stone = ImageIO.read(Client.class.getResourceAsStream("stone.png"));
     }
 
     private static void openLogInFrame() {
@@ -115,7 +116,7 @@ public class Client {
                     for (int j = -y / TILE_SIZE - halfHeightTileCount - 2; j < -y / TILE_SIZE + halfHeightTileCount + 2; j++) {
                         int tileIndexX = i + TILEMAP_SIZE / 2;
                         int tileIndexY = j + TILEMAP_SIZE / 2;
-                        BufferedImage tileSprite = tilemap[tileIndexX][tileIndexY] == Tile.GRASS ? grass : bush;
+                        BufferedImage tileSprite = tilemap[tileIndexX][tileIndexY] == Tile.STONE ? stone : (tilemap[tileIndexX][tileIndexY] == Tile.GRASS ? grass : bush);
                         int tileX = i * TILE_SIZE + getWidth() / 2 - x;
                         int tileY = j * TILE_SIZE + getHeight() / 2 + y;
                         g.drawImage(tileSprite, tileX, tileY, TILE_SIZE, TILE_SIZE, null);
