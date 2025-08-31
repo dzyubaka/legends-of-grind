@@ -9,6 +9,7 @@ import java.net.*;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.Arrays;
 
 public class Client {
     private static final int TILEMAP_SIZE = 100;
@@ -175,25 +176,24 @@ public class Client {
         }).start();
     }
 
-    private static Player[] deserializePlayers(byte[] buf) throws IOException {
-        try (ByteArrayInputStream bis = new ByteArrayInputStream(buf)) {
-            Player[] players = new Player[bis.read()];
-            for (int i = 0; i < players.length; i++) {
-                String nickname = new String(bis.readNBytes(bis.read()));
-                Player player = new Player(nickname, new Point(bis.read(), bis.read()));
-                players[i] = player;
-            }
-            return players;
+    private static byte[] serializePlayer() throws IOException {
+        try (ByteArrayOutputStream bos = new ByteArrayOutputStream();
+             DataOutputStream dos = new DataOutputStream(bos)) {
+            dos.writeUTF(player.nickname);
+            dos.writeShort(player.position.x);
+            dos.writeShort(player.position.y);
+            return bos.toByteArray();
         }
     }
 
-    private static byte[] serializePlayer() throws IOException {
-        try (ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
-            bos.write(player.nickname.length());
-            bos.write(player.nickname.getBytes());
-            bos.write(player.position.x);
-            bos.write(player.position.y);
-            return bos.toByteArray();
+    private static Player[] deserializePlayers(byte[] buf) throws IOException {
+        try (DataInputStream dis = new DataInputStream(new ByteArrayInputStream(buf))) {
+            Player[] players = new Player[dis.read()];
+            for (int i = 0; i < players.length; i++) {
+                Player player = new Player(new String(dis.readUTF()), new Point(dis.readShort(), dis.readShort()));
+                players[i] = player;
+            }
+            return players;
         }
     }
 

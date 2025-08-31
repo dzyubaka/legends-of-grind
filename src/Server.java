@@ -18,7 +18,7 @@ public class Server {
     private static final Path path = Path.of("tilemap.txt");
     private static final Tile[][] tilemap = new Tile[TILEMAP_SIZE][TILEMAP_SIZE];
     private static final DatagramSocket server;
-    private static final HashMap<SocketAddress, Player> clients = new HashMap<>();
+    private static final HashMap<SocketAddress, Player> players = new HashMap<>();
 
     static {
         try {
@@ -61,10 +61,9 @@ public class Server {
                 byte[] buf = new byte[16];
                 DatagramPacket packet = new DatagramPacket(buf, buf.length);
                 server.receive(packet);
-                try (ByteArrayInputStream bis = new ByteArrayInputStream(buf)) {
-                    String nickname = new String(bis.readNBytes(bis.read()));
-                    Player player = new Player(nickname, new Point(bis.read(), bis.read()));
-                    clients.put(packet.getSocketAddress(), player);
+                try (DataInputStream dis = new DataInputStream(new ByteArrayInputStream(buf))) {
+                    Player player = new Player(dis.readUTF(), new Point(dis.readShort(), dis.readShort()));
+                    players.put(packet.getSocketAddress(), player);
                 }
             }
         } catch (IOException e) {
@@ -78,9 +77,8 @@ public class Server {
             public void run() {
                 try {
                     byte[] buf = serializePlayers();
-                    for (SocketAddress player : clients.keySet()) {
-                        DatagramPacket packet = new DatagramPacket(buf, buf.length, player);
-                        server.send(packet);
+                    for (SocketAddress client : players.keySet()) {
+                        server.send(new DatagramPacket(buf, buf.length, client));
                     }
                 } catch (IOException e) {
                     throw new RuntimeException(e);
@@ -90,13 +88,13 @@ public class Server {
     }
 
     private static byte[] serializePlayers() throws IOException {
-        try (ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
-            bos.write(clients.size());
-            for (Player player : clients.values()) {
-                bos.write(player.nickname.length());
-                bos.write(player.nickname.getBytes());
-                bos.write(player.position.x);
-                bos.write(player.position.y);
+        try (ByteArrayOutputStream bos = new ByteArrayOutputStream();
+             DataOutputStream dos = new DataOutputStream(bos)) {
+            dos.write(players.size());
+            for (Player player : players.values()) {
+                dos.writeUTF(player.nickname);
+                dos.writeShort(player.position.x);
+                dos.writeShort(player.position.y);
             }
             return bos.toByteArray();
         }
