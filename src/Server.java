@@ -11,7 +11,6 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.*;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class Server {
@@ -19,7 +18,7 @@ public class Server {
     private static final Path path = Path.of("tilemap.txt");
     private static final Tile[][] tilemap = new Tile[TILEMAP_SIZE][TILEMAP_SIZE];
     private static final DatagramSocket server;
-    private static final HashMap<SocketAddress, Point> clients = new HashMap<>();
+    private static final HashMap<SocketAddress, Player> clients = new HashMap<>();
 
     static {
         try {
@@ -59,15 +58,14 @@ public class Server {
     private static void receive() {
         try {
             while (true) {
-                byte[] buf = new byte[2];
+                byte[] buf = new byte[16];
                 DatagramPacket packet = new DatagramPacket(buf, buf.length);
                 server.receive(packet);
-                SocketAddress client = packet.getSocketAddress();
-                if (!clients.containsKey(client)) {
-                    System.out.println("connected new client " + client);
+                try (ByteArrayInputStream bis = new ByteArrayInputStream(buf)) {
+                    String nickname = new String(bis.readNBytes(bis.read()));
+                    Player player = new Player(nickname, new Point(bis.read(), bis.read()));
+                    clients.put(packet.getSocketAddress(), player);
                 }
-                System.out.printf("received %s from %s%n", Arrays.toString(buf), client);
-                clients.put(client, new Point(buf[0], buf[1]));
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -79,11 +77,10 @@ public class Server {
             @Override
             public void run() {
                 try {
-                    for (SocketAddress client : clients.keySet()) {
-                        byte[] buf = getClientsBytes();
-                        DatagramPacket packet = new DatagramPacket(buf, buf.length, client);
+                    byte[] buf = serializePlayers();
+                    for (SocketAddress player : clients.keySet()) {
+                        DatagramPacket packet = new DatagramPacket(buf, buf.length, player);
                         server.send(packet);
-                        System.out.printf("sent packet %s to client %s%n", Arrays.toString(buf), client);
                     }
                 } catch (IOException e) {
                     throw new RuntimeException(e);
@@ -92,15 +89,17 @@ public class Server {
         }, 0, 1000);
     }
 
-    private static byte[] getClientsBytes() {
-        byte[] buf = new byte[clients.size() * 2];
-        int i = 0;
-        for (Point client : clients.values()) {
-            buf[i] = (byte) client.x;
-            buf[i + 1] = (byte) client.y;
-            i += 2;
+    private static byte[] serializePlayers() throws IOException {
+        try (ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
+            bos.write(clients.size());
+            for (Player player : clients.values()) {
+                bos.write(player.nickname.length());
+                bos.write(player.nickname.getBytes());
+                bos.write(player.position.x);
+                bos.write(player.position.y);
+            }
+            return bos.toByteArray();
         }
-        return buf;
     }
 
     private static void sendTilemap(OutputStream outputStream) throws IOException {

@@ -4,24 +4,21 @@ import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.image.BufferedImage;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.net.*;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Base64;
 
 public class Client {
     private static final int TILEMAP_SIZE = 100;
     private static final int TILE_SIZE = 64;
     private static final Tile[][] tilemap = new Tile[TILEMAP_SIZE][TILEMAP_SIZE];
     private static final boolean[] wasd = new boolean[4];
+    private static final Player player = new Player(null, new Point());
+    private static final HttpClient httpClient = HttpClient.newHttpClient();
     private static BufferedImage playerImage, grass, bush, stone;
-    private static int x, y;
-    private static ArrayList<Point> players = new ArrayList<>();
+    private static Player[] players = new Player[0];
 
     public static void main(String[] args) throws IOException {
         loadSprites();
@@ -53,20 +50,21 @@ public class Client {
         JPasswordField logInPassword = new JPasswordField();
         logInFrame.add(logInPassword);
         logInFrame.add(new JLabel("Nickname"));
-        JTextField nickname = new JTextField();
-        logInFrame.add(nickname);
+        JTextField nicknameField = new JTextField();
+        logInFrame.add(nicknameField);
         logInFrame.add(new Container());
         logInFrame.add(new JButton("Log In"));
         logInFrame.add(new Container());
         JButton registerButton = new JButton("Register");
         registerButton.addActionListener(_ -> {
             try {
-                String body = String.format("login=%s&password=%s&nickname=%s", registerLogin.getText(), registerPassword.getText(), nickname.getText());
+                player.nickname = nicknameField.getText();
+                String body = String.format("login=%s&password=%s&nickname=%s", registerLogin.getText(), registerPassword.getText(), player.nickname);
                 HttpRequest request = HttpRequest.newBuilder()
                         .uri(URI.create("http://localhost/register"))
                         .POST(HttpRequest.BodyPublishers.ofString(body))
                         .build();
-                HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.discarding());
+                httpClient.send(request, HttpResponse.BodyHandlers.discarding());
                 openMainFrame();
                 logInFrame.dispose();
             } catch (IOException | InterruptedException e) {
@@ -96,19 +94,19 @@ public class Client {
                 super.paintComponent(g);
                 int halfWidthTileCount = getWidth() / 2 / TILE_SIZE;
                 int halfHeightTileCount = getHeight() / 2 / TILE_SIZE;
-                for (int i = x / TILE_SIZE - halfWidthTileCount - 1; i < x / TILE_SIZE + halfWidthTileCount + 1; i++) {
-                    for (int j = -y / TILE_SIZE - halfHeightTileCount - 2; j < -y / TILE_SIZE + halfHeightTileCount + 2; j++) {
+                for (int i = player.position.x / TILE_SIZE - halfWidthTileCount - 1; i < player.position.x / TILE_SIZE + halfWidthTileCount + 1; i++) {
+                    for (int j = -player.position.y / TILE_SIZE - halfHeightTileCount - 2; j < -player.position.y / TILE_SIZE + halfHeightTileCount + 2; j++) {
                         int tileIndexX = i + TILEMAP_SIZE / 2;
                         int tileIndexY = j + TILEMAP_SIZE / 2;
                         BufferedImage tileSprite = tilemap[tileIndexX][tileIndexY] == Tile.STONE ? stone : (tilemap[tileIndexX][tileIndexY] == Tile.BUSH ? bush : grass);
-                        int tileX = i * TILE_SIZE + getWidth() / 2 - x;
-                        int tileY = j * TILE_SIZE + getHeight() / 2 + y;
+                        int tileX = i * TILE_SIZE + getWidth() / 2 - player.position.x;
+                        int tileY = j * TILE_SIZE + getHeight() / 2 + player.position.y;
                         g.drawImage(tileSprite, tileX, tileY, TILE_SIZE, TILE_SIZE, null);
                     }
                 }
-                for (Point player : players) {
-                    int playerX = player.x + (getWidth() - TILE_SIZE) / 2 - x;
-                    int playerY = -player.y + (getHeight() - TILE_SIZE) / 2 + y;
+                for (Player p : players) {
+                    int playerX = p.position.x + (getWidth() - TILE_SIZE) / 2 - player.position.x;
+                    int playerY = -p.position.y + (getHeight() - TILE_SIZE) / 2 + player.position.y;
                     g.drawImage(playerImage, playerX, playerY, TILE_SIZE, TILE_SIZE, null);
                 }
                 int playerX = (getWidth() - TILE_SIZE) / 2;
@@ -151,10 +149,9 @@ public class Client {
         DatagramSocket server = new DatagramSocket();
         new Timer(1000, _ -> {
             try {
-                byte[] buf = {(byte) x, (byte) y};
+                byte[] buf = serializePlayer();
                 DatagramPacket packet = new DatagramPacket(buf, 0, buf.length, new InetSocketAddress("localhost", 8888));
                 server.send(packet);
-                System.out.println("sent buf " + Arrays.toString(buf));
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -162,15 +159,16 @@ public class Client {
         new Thread(() -> {
             try {
                 while (true) {
-                    byte[] buf = new byte[4];
-                    DatagramPacket packet = new DatagramPacket(buf, buf.length);
-                    server.receive(packet);
-                    System.out.printf("received %s from server%n", Arrays.toString(Arrays.copyOfRange(buf, 0, packet.getLength())));
-                    players.clear();
-                    for (int i = 0; i < packet.getLength(); i += 2) {
-                        players.add(new Point(buf[i], buf[i + 1]));
+                    byte[] buf = new byte[16];
+                    server.receive(new DatagramPacket(buf, buf.length));
+                    try (ByteArrayInputStream bis = new ByteArrayInputStream(buf)) {
+                        players = new Player[bis.read()];
+                        for (int i = 0; i < players.length; i++) {
+                            String nickname = new String(bis.readNBytes(bis.read()));
+                            Player player = new Player(nickname, new Point(bis.read(), bis.read()));
+                            players[i] = player;
+                        }
                     }
-                    System.out.println("players = " + players);
                 }
             } catch (IOException e) {
                 throw new RuntimeException(e);
@@ -178,18 +176,28 @@ public class Client {
         }).start();
     }
 
+    private static byte[] serializePlayer() throws IOException {
+        try (ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
+            bos.write(player.nickname.length());
+            bos.write(player.nickname.getBytes());
+            bos.write(player.position.x);
+            bos.write(player.position.y);
+            return bos.toByteArray();
+        }
+    }
+
     private static void move() {
         if (wasd[0]) {
-            y++;
+            player.position.y++;
         }
         if (wasd[1]) {
-            x--;
+            player.position.x--;
         }
         if (wasd[2]) {
-            y--;
+            player.position.y--;
         }
         if (wasd[3]) {
-            x++;
+            player.position.x++;
         }
     }
 }
