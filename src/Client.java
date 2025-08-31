@@ -61,11 +61,10 @@ public class Client {
         JButton registerButton = new JButton("Register");
         registerButton.addActionListener(_ -> {
             try {
-                String auth = "Basic " + Base64.getEncoder().encodeToString((registerLogin.getText() + ":" + registerPassword.getText()).getBytes());
+                String body = String.format("login=%s&password=%s&nickname=%s", registerLogin.getText(), registerPassword.getText(), nickname.getText());
                 HttpRequest request = HttpRequest.newBuilder()
                         .uri(URI.create("http://localhost/register"))
-                        .header("Authorization", auth)
-                        .POST(HttpRequest.BodyPublishers.noBody())
+                        .POST(HttpRequest.BodyPublishers.ofString(body))
                         .build();
                 HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.discarding());
                 openMainFrame();

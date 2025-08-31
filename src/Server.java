@@ -11,6 +11,8 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class Server {
     private static final int TILEMAP_SIZE = 100;
@@ -30,14 +32,15 @@ public class Server {
     public static void main(String[] args) throws IOException, SQLException, InterruptedException {
         Connection connection = DriverManager.getConnection("jdbc:sqlite:Legends of Grind.db");
         HttpServer httpServer = HttpServer.create(new InetSocketAddress(80), 0);
-        Base64.Decoder decoder = Base64.getDecoder();
         httpServer.createContext("/register", exchange -> {
             try {
-                String[] auth = new String(decoder.decode(exchange.getRequestHeaders().getFirst("Authorization").split(" ")[1])).split(":");
+                Map<String, String> formData = Arrays.stream(new String(exchange.getRequestBody().readAllBytes()).split("&"))
+                        .map(s -> s.split("="))
+                        .collect(Collectors.toMap(s -> s[0], s -> s[1]));
                 PreparedStatement preparedStatement = connection.prepareStatement("insert into users values (?, ?, ?, ?, ?)");
-                preparedStatement.setString(1, auth[0]);
-                preparedStatement.setString(2, auth[1]);
-                preparedStatement.setString(3, null);
+                preparedStatement.setString(1, formData.get("login"));
+                preparedStatement.setString(2, formData.get("password"));
+                preparedStatement.setString(3, formData.get("nickname"));
                 preparedStatement.setInt(4, TILEMAP_SIZE / 2);
                 preparedStatement.setInt(5, TILEMAP_SIZE / 2);
                 preparedStatement.executeUpdate();
