@@ -17,6 +17,7 @@ public class Client {
     private static final boolean[] wasd = new boolean[4];
     private static final Player player = new Player(null, new Point());
     private static final HttpClient httpClient = HttpClient.newHttpClient();
+    private static final InetSocketAddress serverAddress = new InetSocketAddress("localhost", 8888);
     private static BufferedImage playerImage, grass, bush, stone;
     private static Player[] players = new Player[0];
 
@@ -104,14 +105,20 @@ public class Client {
                         g.drawImage(tileSprite, tileX, tileY, TILE_SIZE, TILE_SIZE, null);
                     }
                 }
-                for (Player p : players) {
-                    int playerX = p.position.x + (getWidth() - TILE_SIZE) / 2 - player.position.x;
-                    int playerY = -p.position.y + (getHeight() - TILE_SIZE) / 2 + player.position.y;
-                    g.drawImage(playerImage, playerX, playerY, TILE_SIZE, TILE_SIZE, null);
-                }
+                renderPlayers(g);
                 int playerX = (getWidth() - TILE_SIZE) / 2;
                 int playerY = (getHeight() - TILE_SIZE) / 2;
                 g.drawImage(playerImage, playerX, playerY, TILE_SIZE, TILE_SIZE, null);
+            }
+
+            private void renderPlayers(Graphics g) {
+                for (Player p : players) {
+                    if (!p.nickname.equals(player.nickname)) {
+                        int playerX = p.position.x + (getWidth() - TILE_SIZE) / 2 - player.position.x;
+                        int playerY = -p.position.y + (getHeight() - TILE_SIZE) / 2 + player.position.y;
+                        g.drawImage(playerImage, playerX, playerY, TILE_SIZE, TILE_SIZE, null);
+                    }
+                }
             }
         };
         frame.add(panel);
@@ -147,11 +154,10 @@ public class Client {
             panel.repaint();
         }).start();
         DatagramSocket server = new DatagramSocket();
-        new Timer(1000, _ -> {
+        new Timer(20, _ -> {
             try {
                 byte[] buf = serializePlayer();
-                DatagramPacket packet = new DatagramPacket(buf, 0, buf.length, new InetSocketAddress("localhost", 8888));
-                server.send(packet);
+                server.send(new DatagramPacket(buf, 0, buf.length, serverAddress));
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -161,19 +167,24 @@ public class Client {
                 while (true) {
                     byte[] buf = new byte[16];
                     server.receive(new DatagramPacket(buf, buf.length));
-                    try (ByteArrayInputStream bis = new ByteArrayInputStream(buf)) {
-                        players = new Player[bis.read()];
-                        for (int i = 0; i < players.length; i++) {
-                            String nickname = new String(bis.readNBytes(bis.read()));
-                            Player player = new Player(nickname, new Point(bis.read(), bis.read()));
-                            players[i] = player;
-                        }
-                    }
+                    players = deserializePlayers(buf);
                 }
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         }).start();
+    }
+
+    private static Player[] deserializePlayers(byte[] buf) throws IOException {
+        try (ByteArrayInputStream bis = new ByteArrayInputStream(buf)) {
+            Player[] players = new Player[bis.read()];
+            for (int i = 0; i < players.length; i++) {
+                String nickname = new String(bis.readNBytes(bis.read()));
+                Player player = new Player(nickname, new Point(bis.read(), bis.read()));
+                players[i] = player;
+            }
+            return players;
+        }
     }
 
     private static byte[] serializePlayer() throws IOException {

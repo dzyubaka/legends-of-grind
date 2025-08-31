@@ -86,7 +86,7 @@ public class Server {
                     throw new RuntimeException(e);
                 }
             }
-        }, 0, 1000);
+        }, 0, 20);
     }
 
     private static byte[] serializePlayers() throws IOException {
