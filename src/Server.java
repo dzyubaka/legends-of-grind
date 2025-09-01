@@ -127,7 +127,15 @@ public class Server {
         Random random = new Random();
         for (int i = 0; i < TILEMAP_SIZE; i++) {
             for (int j = 0; j < TILEMAP_SIZE; j++) {
-                tilemap[i][j] = random.nextInt(10) == 0 ? (random.nextInt(10) == 0 ? Tile.STONE : Tile.BUSH) : Tile.GRASS;
+                int chance = random.nextInt(100);
+
+                if (chance < 1) {
+                    tilemap[i][j] = Tile.STONE;
+                } else if (chance < 10) {
+                    tilemap[i][j] = Tile.BUSH;
+                } else {
+                    tilemap[i][j] = Tile.GRASS;
+                }
             }
         }
     }

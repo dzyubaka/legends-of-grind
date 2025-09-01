@@ -99,7 +99,11 @@ public class Client {
                     for (int j = -player.position.y / TILE_SIZE - halfHeightTileCount - 2; j < -player.position.y / TILE_SIZE + halfHeightTileCount + 2; j++) {
                         int tileIndexX = i + TILEMAP_SIZE / 2;
                         int tileIndexY = j + TILEMAP_SIZE / 2;
-                        BufferedImage tileSprite = tilemap[tileIndexX][tileIndexY] == Tile.STONE ? stone : (tilemap[tileIndexX][tileIndexY] == Tile.BUSH ? bush : grass);
+                        BufferedImage tileSprite = switch(tilemap[tileIndexX][tileIndexY]) {
+                            case Tile.STONE -> stone;
+                            case Tile.BUSH -> bush;
+                            default -> grass;
+                        };
                         int tileX = i * TILE_SIZE + getWidth() / 2 - player.position.x;
                         int tileY = j * TILE_SIZE + getHeight() / 2 + player.position.y;
                         g.drawImage(tileSprite, tileX, tileY, TILE_SIZE, TILE_SIZE, null);
