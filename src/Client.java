@@ -9,14 +9,13 @@ import java.net.*;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.util.Arrays;
 
 public class Client {
     private static final int TILEMAP_SIZE = 100;
     private static final int TILE_SIZE = 64;
     private static final Tile[][] tilemap = new Tile[TILEMAP_SIZE][TILEMAP_SIZE];
     private static final boolean[] wasd = new boolean[4];
-    private static final Player player = new Player(null, new Point());
+    private static final Player player = new Player();
     private static final HttpClient httpClient = HttpClient.newHttpClient();
     private static final InetSocketAddress serverAddress = new InetSocketAddress("localhost", 8888);
     private static BufferedImage playerImage, grass, bush, stone;
@@ -157,7 +156,7 @@ public class Client {
         DatagramSocket server = new DatagramSocket();
         new Timer(20, _ -> {
             try {
-                byte[] buf = serializePlayer();
+                byte[] buf = player.serialize();
                 server.send(new DatagramPacket(buf, 0, buf.length, serverAddress));
             } catch (IOException e) {
                 throw new RuntimeException(e);
@@ -176,22 +175,11 @@ public class Client {
         }).start();
     }
 
-    private static byte[] serializePlayer() throws IOException {
-        try (ByteArrayOutputStream bos = new ByteArrayOutputStream();
-             DataOutputStream dos = new DataOutputStream(bos)) {
-            dos.writeUTF(player.nickname);
-            dos.writeShort(player.position.x);
-            dos.writeShort(player.position.y);
-            return bos.toByteArray();
-        }
-    }
-
     private static Player[] deserializePlayers(byte[] buf) throws IOException {
         try (DataInputStream dis = new DataInputStream(new ByteArrayInputStream(buf))) {
             Player[] players = new Player[dis.read()];
             for (int i = 0; i < players.length; i++) {
-                Player player = new Player(new String(dis.readUTF()), new Point(dis.readShort(), dis.readShort()));
-                players[i] = player;
+                players[i] = new Player(dis);
             }
             return players;
         }

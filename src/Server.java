@@ -1,6 +1,5 @@
 import com.sun.net.httpserver.HttpServer;
 
-import java.awt.*;
 import java.io.*;
 import java.net.*;
 import java.nio.file.Files;
@@ -61,10 +60,7 @@ public class Server {
                 byte[] buf = new byte[16];
                 DatagramPacket packet = new DatagramPacket(buf, buf.length);
                 server.receive(packet);
-                try (DataInputStream dis = new DataInputStream(new ByteArrayInputStream(buf))) {
-                    Player player = new Player(dis.readUTF(), new Point(dis.readShort(), dis.readShort()));
-                    players.put(packet.getSocketAddress(), player);
-                }
+                players.put(packet.getSocketAddress(), new Player(buf));
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -92,9 +88,7 @@ public class Server {
              DataOutputStream dos = new DataOutputStream(bos)) {
             dos.write(players.size());
             for (Player player : players.values()) {
-                dos.writeUTF(player.nickname);
-                dos.writeShort(player.position.x);
-                dos.writeShort(player.position.y);
+                player.serialize(dos);
             }
             return bos.toByteArray();
         }
